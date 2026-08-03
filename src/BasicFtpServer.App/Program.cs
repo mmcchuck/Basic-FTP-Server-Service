@@ -36,7 +36,12 @@ internal static partial class Program
             "--uninstall-service" => Cli(UninstallService),
             "--add-firewall-rules" => Cli(AddFirewallRules),
             "--remove-firewall-rules" => Cli(() => Report(FirewallRules.Remove(), "Firewall rules removed.")),
-            "--register-tray" => Cli(() => Report(TrayAutostart.Register(ServiceControl.ExecutablePath), "Tray logon task registered.")),
+            // Optional second argument names the account the tray should start for; the
+            // installer supplies the pre-elevation user, which may not be the one that
+            // answered the UAC prompt.
+            "--register-tray" => Cli(() => Report(
+                TrayAutostart.Register(ServiceControl.ExecutablePath, args.Length > 1 ? args[1] : null),
+                "Tray logon task registered.")),
             "--unregister-tray" => Cli(() => Report(TrayAutostart.Unregister(), "Tray logon task removed.")),
             "--status" => Cli(PrintStatus),
             "--help" or "-h" or "/?" => Cli(PrintHelp),
@@ -107,10 +112,21 @@ internal static partial class Program
 
     private static int RunTray()
     {
-        // One tray per session; a second launch just surfaces the existing icon's balloon.
-        using var singleInstance = new Mutex(true, @"Local\BasicFtpServerServiceTray", out var isFirstInstance);
+        using var singleInstance = new Mutex(true, TraySignals.SingleInstanceMutex, out var isFirstInstance);
         if (!isFirstInstance)
         {
+            // Hand off to the tray that is already running rather than exiting silently,
+            // which makes the Start Menu shortcut look broken.
+            try
+            {
+                using var showUi = EventWaitHandle.OpenExisting(TraySignals.ShowUiEvent);
+                showUi.Set();
+            }
+            catch (WaitHandleCannotBeOpenedException)
+            {
+                // The other instance is starting up or shutting down. Nothing to hand off to.
+            }
+
             return 0;
         }
 
@@ -193,7 +209,11 @@ internal static partial class Program
             Setup (require an elevated prompt):
               --install-service / --uninstall-service
               --add-firewall-rules / --remove-firewall-rules
-              --register-tray / --unregister-tray
+              --register-tray [DOMAIN\user] / --unregister-tray
+
+            --register-tray takes the account the tray should start for. Pass it when the
+            person installing is not the person who will be logged in; it defaults to
+            whoever runs the command.
             """);
         return 0;
     }

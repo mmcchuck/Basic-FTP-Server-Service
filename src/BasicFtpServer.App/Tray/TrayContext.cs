@@ -17,6 +17,16 @@ public sealed class TrayContext : ApplicationContext
     private readonly ToolStripMenuItem _startStopItem;
     private readonly ToolStripMenuItem _openFolderItem;
 
+    private readonly EventWaitHandle _showUiRequested;
+    private readonly RegisteredWaitHandle _showUiRegistration;
+
+    /// <summary>
+    /// A never-shown window used purely to marshal onto the UI thread. ApplicationContext is
+    /// not a Control, so there is otherwise nothing to Invoke against from the thread-pool
+    /// callback that services the show-UI event.
+    /// </summary>
+    private readonly Form _uiThreadMarshaller;
+
     private SettingsForm? _settings;
     private LogForm? _log;
     private ServerStatusDto? _status;
@@ -55,7 +65,36 @@ public sealed class TrayContext : ApplicationContext
         _poll.Tick += (_, _) => _ = RefreshAsync();
         _poll.Start();
 
+        _uiThreadMarshaller = new Form
+        {
+            ShowInTaskbar = false,
+            FormBorderStyle = FormBorderStyle.None,
+            WindowState = FormWindowState.Minimized,
+        };
+        _ = _uiThreadMarshaller.Handle; // Force handle creation so BeginInvoke is usable.
+
+        _showUiRequested = new EventWaitHandle(false, EventResetMode.AutoReset, TraySignals.ShowUiEvent);
+        _showUiRegistration = ThreadPool.RegisterWaitForSingleObject(
+            _showUiRequested,
+            (_, _) => OnShowUiRequested(),
+            state: null,
+            Timeout.Infinite,
+            executeOnlyOnce: false);
+
         _ = RefreshAsync();
+    }
+
+    /// <summary>Runs on a thread-pool thread when another launch asks us to surface the UI.</summary>
+    private void OnShowUiRequested()
+    {
+        try
+        {
+            _uiThreadMarshaller.BeginInvoke(ShowSettings);
+        }
+        catch (Exception ex) when (ex is ObjectDisposedException or InvalidOperationException)
+        {
+            // Shutting down; the other process simply gets no window.
+        }
     }
 
     private async Task RefreshAsync()
@@ -195,7 +234,14 @@ public sealed class TrayContext : ApplicationContext
     {
         if (_settings is { IsDisposed: false })
         {
+            // Restore first: Activate alone does nothing useful on a minimized window.
+            if (_settings.WindowState == FormWindowState.Minimized)
+            {
+                _settings.WindowState = FormWindowState.Normal;
+            }
+
             _settings.Activate();
+            _settings.BringToFront();
             return;
         }
 
@@ -234,6 +280,10 @@ public sealed class TrayContext : ApplicationContext
     {
         if (disposing)
         {
+            // Unregister before disposing the handle it is waiting on.
+            _showUiRegistration.Unregister(null);
+            _showUiRequested.Dispose();
+            _uiThreadMarshaller.Dispose();
             _poll.Dispose();
             _icon.Dispose();
         }

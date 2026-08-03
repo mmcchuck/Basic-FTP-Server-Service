@@ -16,6 +16,11 @@ internal static class ProcessRunner
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            // Redirected and immediately closed. schtasks documents that it "always prompts
+            // for a password unless you provide one" — inside a hidden installer window that
+            // prompt would block until the timeout. Handing it EOF makes it fail fast so the
+            // caller can fall back instead of hanging.
+            RedirectStandardInput = true,
             UseShellExecute = false,
             CreateNoWindow = true,
         };
@@ -25,6 +30,8 @@ internal static class ProcessRunner
         {
             return new ProcessResult(-1, $"Could not start {fileName}.");
         }
+
+        process.StandardInput.Close();
 
         var output = new StringBuilder();
         output.Append(process.StandardOutput.ReadToEnd());

@@ -40,14 +40,19 @@ Source: "..\docs\COPIER-SETUP.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "..\config.example.json"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"; Parameters: "--tray"
+; Goes via the scheduled task rather than the executable directly. The tray is manifested
+; requireAdministrator, so launching it from a shortcut always raises a UAC prompt; the task
+; is registered to run with highest privileges and starts it elevated, silently. It also
+; behaves correctly either way round — if no tray is running the task starts one, and if one
+; already is, the second instance asks it to show its settings window and exits.
+Name: "{group}\{#AppName}"; Filename: "{sys}\schtasks.exe"; Parameters: "/Run /TN ""{#TrayTaskName}"""; IconFilename: "{app}\{#AppExe}"; Comment: "Open the Basic FTP Server Service settings"; Flags: runminimized
 Name: "{group}\Copier Setup Guide"; Filename: "{app}\docs\COPIER-SETUP.md"
 Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"
 
 [Run]
 Filename: "{app}\{#AppExe}"; Parameters: "--install-service"; StatusMsg: "Registering the Windows service..."; Flags: runhidden waituntilterminated
 Filename: "{app}\{#AppExe}"; Parameters: "--add-firewall-rules"; StatusMsg: "Adding Windows Firewall rules..."; Flags: runhidden waituntilterminated
-Filename: "{app}\{#AppExe}"; Parameters: "--register-tray"; StatusMsg: "Registering the tray icon to start at logon..."; Flags: runhidden waituntilterminated
+Filename: "{app}\{#AppExe}"; Parameters: "--register-tray ""{code:GetOriginalUser}"""; StatusMsg: "Registering the tray icon to start at logon..."; Flags: runhidden waituntilterminated
 ; runascurrentuser is required here. Postinstall entries default to runasoriginaluser —
 ; i.e. de-elevated — and the tray is manifested requireAdministrator, so without this flag
 ; the finish-page checkbox triggers a UAC prompt. Inheriting Setup's already-elevated token
@@ -62,6 +67,44 @@ Filename: "{app}\{#AppExe}"; Parameters: "--uninstall-service"; Flags: runhidden
 [Code]
 // Configuration and logs live in %ProgramData% and are intentionally left in place on
 // uninstall, so reinstalling does not lose the accounts and scan folders.
+
+var
+  CachedOriginalUser: String;
+
+// The account that will actually be logged in and needs the tray.
+//
+// {username} is the account that answered the UAC prompt, which is NOT the same person
+// when a technician elevates with a separate admin account — the usual case in a domain.
+// Registering the logon task against that admin would mean the real user never gets a
+// tray. ExecAsOriginalUser drops back to the pre-elevation context to find out who that is.
+function GetOriginalUser(Param: String): String;
+var
+  TempFile: String;
+  Lines: TArrayOfString;
+  ResultCode: Integer;
+begin
+  if CachedOriginalUser <> '' then
+  begin
+    Result := CachedOriginalUser;
+    exit;
+  end;
+
+  CachedOriginalUser := ExpandConstant('{username}');
+
+  TempFile := ExpandConstant('{tmp}\originaluser.txt');
+  if ExecAsOriginalUser(ExpandConstant('{cmd}'),
+                        '/C echo %USERDOMAIN%\%USERNAME%>"' + TempFile + '"',
+                        '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    if LoadStringsFromFile(TempFile, Lines) then
+      if GetArrayLength(Lines) > 0 then
+        if Trim(Lines[0]) <> '' then
+          CachedOriginalUser := Trim(Lines[0]);
+    DeleteFile(TempFile);
+  end;
+
+  Result := CachedOriginalUser;
+end;
 
 procedure StopRunningComponents;
 var
