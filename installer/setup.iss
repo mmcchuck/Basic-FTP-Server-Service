@@ -4,9 +4,13 @@
 ; (build.ps1 publishes the app first, then invokes ISCC on this script.)
 
 #define AppName        "Basic FTP Server Service"
-#define AppVersion     "1.0.0"
 #define AppPublisher   "Basic FTP Server Service"
 #define AppExe         "BasicFtpServer.exe"
+#define AppExeSource   "..\publish\" + AppExe
+
+; Read the version out of the executable we are about to package, so it can never disagree
+; with the assembly version set in Directory.Build.props.
+#define AppVersion     GetStringFileInfo(AppExeSource, "ProductVersion")
 #define ServiceName    "BasicFtpServerService"
 #define TrayTaskName   "BasicFtpServerServiceTray"
 

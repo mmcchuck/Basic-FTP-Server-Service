@@ -9,7 +9,15 @@
     <Product>Basic FTP Server Service</Product>
     <Company>Basic FTP Server Service</Company>
     <Copyright>Copyright (c) 2026</Copyright>
-    <Version>1.0.0</Version>
+
+    <!--
+      Single source of truth for the version. The installer reads it back out of the built
+      executable rather than declaring its own, so the two cannot drift apart.
+      IncludeSourceRevisionInInformationalVersion is off because the SDK otherwise appends
+      "+<commit hash>" to ProductVersion, which would land in the installer's filename.
+    -->
+    <Version>1.0.1</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
 </Project>
