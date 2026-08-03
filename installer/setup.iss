@@ -48,7 +48,11 @@ Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"
 Filename: "{app}\{#AppExe}"; Parameters: "--install-service"; StatusMsg: "Registering the Windows service..."; Flags: runhidden waituntilterminated
 Filename: "{app}\{#AppExe}"; Parameters: "--add-firewall-rules"; StatusMsg: "Adding Windows Firewall rules..."; Flags: runhidden waituntilterminated
 Filename: "{app}\{#AppExe}"; Parameters: "--register-tray"; StatusMsg: "Registering the tray icon to start at logon..."; Flags: runhidden waituntilterminated
-Filename: "{app}\{#AppExe}"; Parameters: "--tray"; Description: "Open the settings tray now"; Flags: postinstall nowait skipifsilent unchecked
+; runascurrentuser is required here. Postinstall entries default to runasoriginaluser —
+; i.e. de-elevated — and the tray is manifested requireAdministrator, so without this flag
+; the finish-page checkbox triggers a UAC prompt. Inheriting Setup's already-elevated token
+; starts the tray silently, matching how the logon task starts it from then on.
+Filename: "{app}\{#AppExe}"; Parameters: "--tray"; Description: "Open the settings tray now"; Flags: postinstall nowait skipifsilent runascurrentuser
 
 [UninstallRun]
 Filename: "{app}\{#AppExe}"; Parameters: "--unregister-tray"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveTrayTask"
