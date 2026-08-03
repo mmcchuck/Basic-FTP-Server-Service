@@ -1,0 +1,45 @@
+{
+  "server": {
+    "listenAddress": "0.0.0.0",
+    "port": 21,
+    "passivePortMin": 55000,
+    "passivePortMax": 55100,
+    "forcedPassiveIp": null,
+    "ignorePortCommandAddress": true,
+    "maxConnections": 20,
+    "idleTimeoutSeconds": 300,
+    "allowedClientIps": []
+  },
+  "compatibility": {
+    "autoCreateDirectories": true,
+    "listingFormat": "unix",
+    "fallbackEncoding": "windows-1252",
+    "minimalFeat": false,
+    "enableEpsv": true,
+    "enableEprt": true,
+    "sanitizeFilenames": true,
+    "writeToPartFile": true,
+    "onDuplicate": "rename",
+    "greeting": "Basic FTP Server Service ready."
+  },
+  "users": [
+    {
+      "name": "copier1",
+      "passwordProtected": "",
+      "homeDirectory": "C:\\Scans\\Copier1",
+      "enabled": true,
+      "permissions": {
+        "read": false,
+        "write": true,
+        "delete": false,
+        "createDirectory": true,
+        "list": true
+      }
+    }
+  ],
+  "logging": {
+    "level": "Information",
+    "retainDays": 14,
+    "logProtocolCommands": true
+  }
+}

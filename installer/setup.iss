@@ -1,0 +1,101 @@
+; Inno Setup script for Basic FTP Server Service.
+;
+; Build with:  powershell -File build.ps1
+; (build.ps1 publishes the app first, then invokes ISCC on this script.)
+
+#define AppName        "Basic FTP Server Service"
+#define AppVersion     "1.0.0"
+#define AppPublisher   "Basic FTP Server Service"
+#define AppExe         "BasicFtpServer.exe"
+#define ServiceName    "BasicFtpServerService"
+#define TrayTaskName   "BasicFtpServerServiceTray"
+
+[Setup]
+AppId={{7F3C1A54-9D2E-4B18-A6C7-2E5B9F0D4A31}
+AppName={#AppName}
+AppVersion={#AppVersion}
+AppPublisher={#AppPublisher}
+DefaultDirName={autopf}\{#AppName}
+DefaultGroupName={#AppName}
+DisableProgramGroupPage=yes
+OutputDir=Output
+OutputBaseFilename=BasicFtpServerService-Setup-{#AppVersion}
+Compression=lzma2
+SolidCompression=yes
+WizardStyle=modern
+UninstallDisplayIcon={app}\{#AppExe}
+
+; The installer registers a service, writes firewall rules and creates a scheduled task,
+; all of which require a full administrator token.
+PrivilegesRequired=admin
+ArchitecturesInstallIn64BitMode=x64compatible
+ArchitecturesAllowed=x64compatible
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Files]
+Source: "..\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\docs\COPIER-SETUP.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "..\config.example.json"; DestDir: "{app}"; Flags: ignoreversion
+
+[Icons]
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"; Parameters: "--tray"
+Name: "{group}\Copier Setup Guide"; Filename: "{app}\docs\COPIER-SETUP.md"
+Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"
+
+[Run]
+Filename: "{app}\{#AppExe}"; Parameters: "--install-service"; StatusMsg: "Registering the Windows service..."; Flags: runhidden waituntilterminated
+Filename: "{app}\{#AppExe}"; Parameters: "--add-firewall-rules"; StatusMsg: "Adding Windows Firewall rules..."; Flags: runhidden waituntilterminated
+Filename: "{app}\{#AppExe}"; Parameters: "--register-tray"; StatusMsg: "Registering the tray icon to start at logon..."; Flags: runhidden waituntilterminated
+Filename: "{app}\{#AppExe}"; Parameters: "--tray"; Description: "Open the settings tray now"; Flags: postinstall nowait skipifsilent unchecked
+
+[UninstallRun]
+Filename: "{app}\{#AppExe}"; Parameters: "--unregister-tray"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveTrayTask"
+Filename: "{app}\{#AppExe}"; Parameters: "--remove-firewall-rules"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveFirewall"
+Filename: "{app}\{#AppExe}"; Parameters: "--uninstall-service"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"
+
+[Code]
+// Configuration and logs live in %ProgramData% and are intentionally left in place on
+// uninstall, so reinstalling does not lose the accounts and scan folders.
+
+procedure StopRunningComponents;
+var
+  ResultCode: Integer;
+begin
+  // The tray holds the executable open, which would block file replacement on upgrade.
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM {#AppExe}', '',
+       SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec(ExpandConstant('{sys}\sc.exe'), 'stop {#ServiceName}', '',
+       SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(1500);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  StopRunningComponents;
+  Result := '';
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  StopRunningComponents;
+  Result := True;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+  begin
+    MsgBox(
+      'Two things to check before pointing copiers at this machine:' + #13#10 + #13#10 +
+      '1. Give this PC a static IP address or a DHCP reservation.' + #13#10 +
+      '    Copiers are configured with a fixed address; if this machine''s IP moves,' + #13#10 +
+      '    every device stops scanning at once.' + #13#10 + #13#10 +
+      '2. Stop this PC from sleeping.' + #13#10 +
+      '    Settings > System > Power > Screen and sleep > Sleep: Never.' + #13#10 +
+      '    A sleeping machine cannot accept scans.' + #13#10 + #13#10 +
+      'Open the tray icon to add an account and choose a scan folder.',
+      mbInformation, MB_OK);
+  end;
+end;

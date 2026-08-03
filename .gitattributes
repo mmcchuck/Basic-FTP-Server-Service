@@ -1,0 +1,16 @@
+# Normalise to LF in the repository; Git checks out CRLF on Windows via core.autocrlf.
+* text=auto
+
+*.cs      text diff=csharp
+*.csproj  text
+*.slnx    text
+*.props   text
+*.json    text
+*.md      text
+*.yml     text
+*.ps1     text
+*.iss     text
+*.manifest text
+
+*.ico binary
+*.png binary

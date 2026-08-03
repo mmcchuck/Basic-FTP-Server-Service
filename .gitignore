@@ -1,0 +1,25 @@
+# Build output
+bin/
+obj/
+publish/
+artifacts/
+*.user
+*.suo
+.vs/
+
+# Installer output
+installer/Output/
+
+# NEVER commit a real config — it contains DPAPI-protected credentials
+# and real destination paths. Only config.example.json belongs in git.
+config.json
+**/config.json
+!config.example.json
+
+# Runtime data
+logs/
+*.log
+
+# OS
+Thumbs.db
+desktop.ini
