@@ -55,6 +55,10 @@ $iscc = @(
     "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
     "${env:ProgramFiles(x86)}\Inno Setup 7\ISCC.exe"
     "$env:ProgramFiles\Inno Setup 7\ISCC.exe"
+    # Inno Setup installs here when run with /CURRENTUSER, which is how you get it
+    # onto a machine without local admin rights.
+    "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+    "$env:LOCALAPPDATA\Programs\Inno Setup 7\ISCC.exe"
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 
 if (-not $iscc) {
