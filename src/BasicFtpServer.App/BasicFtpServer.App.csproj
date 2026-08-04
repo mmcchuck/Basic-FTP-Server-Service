@@ -15,6 +15,10 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
 
+    <!-- Without this the executable has no icon resource, so Start Menu shortcuts
+         pointing at it render blank. Regenerate with tools\generate-icons.ps1. -->
+    <ApplicationIcon>Resources\App.ico</ApplicationIcon>
+
     <!-- Self-contained so target PCs need no .NET runtime installed. -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
@@ -32,6 +36,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BasicFtpServer.Core\BasicFtpServer.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Explicit LogicalName so lookups do not depend on namespace-derived resource names. -->
+    <EmbeddedResource Include="Resources\App.ico" LogicalName="App.ico" />
+    <EmbeddedResource Include="Resources\TrayRunning.ico" LogicalName="TrayRunning.ico" />
+    <EmbeddedResource Include="Resources\TrayWarning.ico" LogicalName="TrayWarning.ico" />
+    <EmbeddedResource Include="Resources\TrayStopped.ico" LogicalName="TrayStopped.ico" />
   </ItemGroup>
 
 </Project>

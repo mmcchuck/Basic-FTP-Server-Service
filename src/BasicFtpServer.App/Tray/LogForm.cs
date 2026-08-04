@@ -35,7 +35,7 @@ public sealed class LogForm : Form
         Text = "Basic FTP Server Service — Live Log";
         StartPosition = FormStartPosition.CenterScreen;
         Size = new Size(980, 620);
-        Icon = TrayIcons.For(TrayState.Running);
+        Icon = TrayIcons.Window;
 
         var clear = new Button { Text = "Clear", AutoSize = true, Margin = new Padding(4) };
         var copy = new Button { Text = "Copy All", AutoSize = true, Margin = new Padding(4) };

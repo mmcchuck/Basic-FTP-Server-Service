@@ -28,6 +28,7 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\{#AppExe}
+SetupIconFile=..\src\BasicFtpServer.App\Resources\App.ico
 
 ; The installer registers a service, writes firewall rules and creates a scheduled task,
 ; all of which require a full administrator token.

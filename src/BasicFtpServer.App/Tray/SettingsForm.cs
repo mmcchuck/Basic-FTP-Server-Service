@@ -55,7 +55,7 @@ public sealed class SettingsForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(760, 620);
         Size = new Size(820, 680);
-        Icon = TrayIcons.For(TrayState.Running);
+        Icon = TrayIcons.Window;
 
         var tabs = new TabControl { Dock = DockStyle.Fill };
         tabs.TabPages.Add(BuildServerTab());
