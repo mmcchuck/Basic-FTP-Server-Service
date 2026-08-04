@@ -32,6 +32,9 @@ internal static partial class Program
         {
             "--service" => RunService(args),
             "--tray" => RunTray(),
+            // Same as --tray but lands straight in Settings. Used by the installer, where
+            // there are no accounts yet and the icon alone would leave nothing to do.
+            "--settings" => RunTray(showSettings: true),
             "--install-service" => Cli(InstallService),
             "--uninstall-service" => Cli(UninstallService),
             "--add-firewall-rules" => Cli(AddFirewallRules),
@@ -110,7 +113,7 @@ internal static partial class Program
 
     // ---- Tray role -------------------------------------------------------------------
 
-    private static int RunTray()
+    private static int RunTray(bool showSettings = false)
     {
         using var singleInstance = new Mutex(true, TraySignals.SingleInstanceMutex, out var isFirstInstance);
         if (!isFirstInstance)
@@ -131,7 +134,7 @@ internal static partial class Program
         }
 
         ApplicationConfiguration.Initialize();
-        using var context = new TrayContext();
+        using var context = new TrayContext(showSettings);
         Application.Run(context);
         return 0;
     }
@@ -201,10 +204,14 @@ internal static partial class Program
         Console.WriteLine("""
             Basic FTP Server Service
 
-              BasicFtpServer.exe                      Open the system tray UI (default)
-              BasicFtpServer.exe --tray               Open the system tray UI
+              BasicFtpServer.exe                      Start the tray icon (default)
+              BasicFtpServer.exe --tray               Start the tray icon
+              BasicFtpServer.exe --settings           Start the tray icon and open Settings
               BasicFtpServer.exe --service            Run as a Windows service (used by the SCM)
               BasicFtpServer.exe --status             Print service and listener status
+
+            If the tray is already running, --tray and --settings ask that instance to show
+            its Settings window instead of starting a second one.
 
             Setup (require an elevated prompt):
               --install-service / --uninstall-service

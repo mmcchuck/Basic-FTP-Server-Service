@@ -61,7 +61,9 @@ Filename: "{app}\{#AppExe}"; Parameters: "--register-tray ""{code:GetOriginalUse
 ; i.e. de-elevated — and the tray is manifested requireAdministrator, so without this flag
 ; the finish-page checkbox triggers a UAC prompt. Inheriting Setup's already-elevated token
 ; starts the tray silently, matching how the logon task starts it from then on.
-Filename: "{app}\{#AppExe}"; Parameters: "--tray"; Description: "Open the settings tray now"; Flags: postinstall nowait skipifsilent runascurrentuser
+; --settings rather than --tray: on a fresh install there are no accounts yet, so starting
+; only the tray icon leaves nothing to act on.
+Filename: "{app}\{#AppExe}"; Parameters: "--settings"; Description: "Open settings now"; Flags: postinstall nowait skipifsilent runascurrentuser
 
 [UninstallRun]
 Filename: "{app}\{#AppExe}"; Parameters: "--unregister-tray"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveTrayTask"
@@ -110,16 +112,28 @@ begin
   Result := CachedOriginalUser;
 end;
 
+// Frees the installed files so an upgrade can replace them.
+//
+// Order matters, and getting it wrong is what made upgrading over a running install fail.
+// The service and the tray share one executable name, so a taskkill by image name also
+// terminates the service — and the service is registered with restart-on-failure actions,
+// so the SCM treated that as a crash and brought it straight back up a few seconds later,
+// mid-copy, re-locking the files.
+//
+// So: stop the service properly first (a graceful stop does not trigger failure actions),
+// and only then kill the tray, which nothing will restart. "net stop" is used rather than
+// "sc stop" because it blocks until the service has actually stopped; "sc stop" only asks.
 procedure StopRunningComponents;
 var
   ResultCode: Integer;
 begin
-  // The tray holds the executable open, which would block file replacement on upgrade.
+  Exec(ExpandConstant('{sys}\net.exe'), 'stop {#ServiceName} /y', '',
+       SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM {#AppExe}', '',
        SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Exec(ExpandConstant('{sys}\sc.exe'), 'stop {#ServiceName}', '',
-       SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Sleep(1500);
+
+  Sleep(1000);
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;

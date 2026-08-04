@@ -31,7 +31,7 @@ public sealed class TrayContext : ApplicationContext
     private LogForm? _log;
     private ServerStatusDto? _status;
 
-    public TrayContext()
+    public TrayContext(bool showSettingsOnStart = false)
     {
         _statusItem = new ToolStripMenuItem("Checking…") { Enabled = false };
         _addressItem = new ToolStripMenuItem("") { Enabled = false };
@@ -80,6 +80,13 @@ public sealed class TrayContext : ApplicationContext
             state: null,
             Timeout.Infinite,
             executeOnlyOnce: false);
+
+        if (showSettingsOnStart)
+        {
+            // Queued rather than called directly: the message loop does not exist until
+            // Application.Run, so showing a window from here would not work.
+            _uiThreadMarshaller.BeginInvoke(ShowSettings);
+        }
 
         _ = RefreshAsync();
     }
