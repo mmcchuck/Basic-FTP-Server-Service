@@ -1,8 +1,10 @@
 # Basic FTP Server Service
 
-A small Windows FTP server for receiving scan-to-FTP jobs from copiers and multifunction
-printers. It runs as a **Windows service**, so scanning survives reboots and works with nobody
-logged in. The system tray icon is UI only — closing it does not stop the server.
+A small Windows and macOS FTP server for receiving scan-to-FTP jobs from copiers and
+multifunction printers. It runs as an operating-system service, so scanning survives reboots
+and works with nobody logged in. On Windows, the system tray icon is UI only — closing it
+does not stop the server. On macOS, `launchd` owns the headless service and a small CLI manages
+accounts and status.
 
 Built as a replacement for Pablo's Quick 'n Easy FTP Server, which does the job well but is a
 desktop application: it only runs while someone is signed in, and a logoff or reboot silently
@@ -14,7 +16,7 @@ stops scanning until somebody notices.
 
 ## What it does
 
-- Runs as a Windows service, starts at boot, restarts automatically on failure
+- Runs as a Windows service or macOS launch daemon, starts at boot, restarts on failure
 - Virtual user accounts — **not** Windows accounts — each with its own scan folder and permissions
 - Active (`PORT`/`EPRT`) and passive (`PASV`/`EPSV`) transfers, because copiers are split between them
 - Live session log in the tray showing the exact exchange with the device
@@ -27,6 +29,8 @@ Not supported: FTPS, per-user bandwidth limits. Copier support for FTPS is incon
 that plaintext on a restricted LAN is the realistic deployment; see [Security](#security).
 
 ## Install
+
+### Windows
 
 Download the installer from [Releases](https://github.com/mmcchuck/Basic-FTP-Server-Service/releases),
 run it, then open the tray icon and add an account.
@@ -52,6 +56,17 @@ From an **elevated** prompt in the publish folder:
 
 ```powershell
 .\BasicFtpServer.exe --install-service; .\BasicFtpServer.exe --add-firewall-rules; .\BasicFtpServer.exe --register-tray
+```
+
+### macOS
+
+The Mac host shares the same FTP protocol engine and configuration model, with a native
+`launchd` wrapper and machine-local encrypted credentials. See **[docs/MACOS.md](docs/MACOS.md)**
+for build, install, account, status, and uninstall commands.
+
+```bash
+./build-macos.sh
+sudo ./macos/install.sh
 ```
 
 ## How it works
@@ -89,8 +104,10 @@ pipe's ACL.
 | --- | --- |
 | `src/BasicFtpServer.Core` | Protocol engine, virtual filesystem, config, auth. No service or UI dependency, so it is testable headlessly |
 | `src/BasicFtpServer.App` | Service host, control pipe, tray UI, setup helpers |
+| `src/BasicFtpServer.Mac` | macOS launch-daemon host, encrypted credential store, and management CLI |
 | `tests/BasicFtpServer.Tests` | xUnit — raw wire-level protocol tests plus end-to-end transfers driven by FluentFTP |
 | `installer/` | Inno Setup script |
+| `macos/` | launchd definition and install/uninstall scripts |
 | `docs/COPIER-SETUP.md` | Device configuration and troubleshooting |
 
 The FTP protocol is implemented directly rather than on a library. The command surface needed
@@ -106,12 +123,14 @@ built accordingly:
 - **Accounts are virtual, not Windows accounts.** A compromised copier cannot yield an OS credential.
 - **Upload-only by default.** A leaked password cannot read back or delete existing scans.
 - **Optional IP allow-list** restricts which devices may even reach the login prompt.
-- **Passwords are DPAPI-protected** at machine scope, in a config file ACL'd to SYSTEM and Administrators. They are recoverable through the elevated UI because a technician has to read them back when configuring a device — a one-way hash would be the wrong trade here.
+- **Passwords are machine-protected:** Windows uses DPAPI and an Administrators-only ACL;
+  macOS uses AES-GCM with a random root-only key and `0600` files. They remain recoverable
+  because a technician has to enter them in a copier — a one-way hash would be the wrong trade.
 - **No default account.** First run writes a config with no users rather than a blank-password default.
 
 ## Testing
 
-```powershell
+```shell
 dotnet test
 ```
 

@@ -8,8 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    # Windows-only by design: the server uses DPAPI, Windows ACLs, the SCM and WinForms.
+  windows:
     runs-on: windows-latest
 
     steps:
@@ -46,3 +45,31 @@ jobs:
         with:
           name: BasicFtpServer-win-x64
           path: publish/
+
+  macos:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test shared FTP engine
+        run: dotnet test tests/BasicFtpServer.Tests/BasicFtpServer.Tests.csproj -c Release --nologo
+
+      - name: Publish Apple Silicon app
+        run: >
+          dotnet publish src/BasicFtpServer.Mac/BasicFtpServer.Mac.csproj
+          -c Release -r osx-arm64 --self-contained true -o publish/macos --nologo
+
+      - name: Include service installer
+        run: cp -R macos publish/macos/
+
+      - name: Upload published app
+        uses: actions/upload-artifact@v7
+        with:
+          name: BasicFtpServer-osx-arm64
+          path: publish/macos/
