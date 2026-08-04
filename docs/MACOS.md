@@ -4,13 +4,23 @@ The macOS host uses the same FTP engine, virtual accounts, compatibility setting
 transfer behavior as the Windows service. Its operating-system shell is deliberately native:
 `launchd` starts it at boot and restarts it after a crash.
 
-## Build and install
+## Install the release
+
+Download the archive for the Mac's processor, extract it, then open
+**Basic FTP Server Installer.app**. The app explains the change and uses the standard macOS
+administrator prompt to install and start the launch daemon.
+
+The current release is not Apple-notarized. On first launch, Control-click the installer app,
+choose **Open**, then confirm **Open**. This exception applies only to that downloaded app.
+
+## Build and install from source
 
 Requires macOS 13 or newer and the .NET 10 SDK.
 
 ```bash
 ./build-macos.sh
-sudo ./macos/install.sh
+./macos/build-installer-app.sh publish/macos artifacts/installer
+open "artifacts/installer/Basic FTP Server Installer.app"
 ```
 
 The build detects Apple Silicon or Intel automatically and publishes a self-contained app,
