@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Runtime.Versioning;
 using System.Text;
 
 namespace BasicFtpServer.Core.Config;
@@ -17,6 +18,7 @@ public interface ISecretProtector
     bool TryUnprotect(string protectedValue, out string plaintext);
 }
 
+[SupportedOSPlatform("windows")]
 public sealed class DpapiSecretProtector : ISecretProtector
 {
     // Ties the ciphertext to this application, so an unrelated DPAPI blob cannot be swapped in.
