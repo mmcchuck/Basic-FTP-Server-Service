@@ -8,7 +8,9 @@ transfer behavior as the Windows service. Its operating-system shell is delibera
 
 Download the archive for the Mac's processor, extract it, then open
 **Basic FTP Server Installer.app**. The app explains the change and uses the standard macOS
-administrator prompt to install and start the launch daemon.
+administrator prompt to install and start the launch daemon. It then opens **Basic FTP Server
+Settings**, where accounts, passwords, folders, permissions, and service restarts are managed
+without Terminal.
 
 The current release is not Apple-notarized. On first launch, Control-click the installer app,
 choose **Open**, then confirm **Open**. This exception applies only to that downloaded app.

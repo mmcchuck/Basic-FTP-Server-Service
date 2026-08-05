@@ -25,6 +25,13 @@ cp "${script_dir}/install.sh" "${script_dir}/com.basicftpserverservice.daemon.pl
   "${app_path}/Contents/Resources/"
 chmod 755 "${app_path}/Contents/Resources/install.sh"
 
+if file "${publish_dir}/basic-ftp-server" | grep -q 'arm64'; then
+  settings_arch="arm64"
+else
+  settings_arch="x64"
+fi
+"${script_dir}/build-settings-app.sh" "${settings_arch}" "${app_path}/Contents/Resources/settings-app"
+
 # An ad-hoc signature seals the bundle against accidental modification. A Developer ID
 # signature and Apple notarization can replace this when signing credentials are available.
 codesign --force --deep --sign - "${app_path}"

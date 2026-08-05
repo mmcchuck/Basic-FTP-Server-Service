@@ -24,18 +24,18 @@ no user is signed in.
 
 ## 3. Add the first scanner account
 
-Open Terminal and run this command, replacing the username, password, and destination folder:
+The installer opens **Basic FTP Server Settings** automatically. It is also available later in
+the Applications folder.
 
-```bash
-sudo "/Library/Application Support/Basic FTP Server Service/app/basic-ftp-server" \
-  add-user scanner 'choose-a-password' '/Users/Shared/Scans'
-```
+1. Click **New**.
+2. Enter the FTP username and password that the copier will use.
+3. Choose the scan destination folder.
+4. Leave downloads and deletion disabled unless the copier specifically needs them.
+5. Click **Add User** and approve the macOS administrator prompt.
 
-Then restart the service so it loads the new account:
+The app restarts the FTP service automatically. It can also edit passwords and folders, disable
+or remove accounts, show service state, and restart the service—no Terminal commands required.
 
-```bash
-sudo launchctl kickstart -k system/com.basicftpserverservice.daemon
-```
 
 Configure the copier with:
 
@@ -47,9 +47,8 @@ Configure the copier with:
 
 ## Check status
 
-```bash
-sudo "/Library/Application Support/Basic FTP Server Service/app/basic-ftp-server" status
-```
+Open **Basic FTP Server Settings** from Applications. Service state and the enabled-user count
+appear at the bottom of the window.
 
 Configuration and logs are stored in:
 

@@ -1,6 +1,7 @@
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using BasicFtpServer.Core.Config;
 using BasicFtpServer.Core.Diagnostics;
 using BasicFtpServer.Core.Protocol;
@@ -25,8 +26,9 @@ internal static class Program
                 "run" or "--run" => await RunAsync(),
                 "init" => Init(),
                 "add-user" => AddUser(args.Skip(1).ToArray()),
+                "set-user" => SetUser(args.Skip(1).ToArray()),
                 "remove-user" => RemoveUser(args.Skip(1).ToArray()),
-                "list-users" => ListUsers(),
+                "list-users" => ListUsers(args.Skip(1).ToArray()),
                 "show-config" => ShowConfig(),
                 "status" => Status(),
                 "help" or "--help" or "-h" => Help(),
@@ -101,9 +103,68 @@ internal static class Program
         return 0;
     }
 
-    private static int ListUsers()
+    private static int SetUser(string[] args)
+    {
+        RequireRootForSystemData();
+        if (args.Length < 3)
+            throw new ArgumentException("Usage: set-user <name> <password-or-empty> <scan-folder> [--read] [--delete] [--disabled]");
+
+        var store = Store();
+        store.EnsureDirectories();
+        var protector = new FileSecretProtector(MacPaths.KeyPath);
+        var config = store.LoadOrDefault(out var error);
+        if (error is not null) throw new InvalidOperationException(error);
+
+        var user = config.Users.FirstOrDefault(u =>
+            string.Equals(u.Name, args[0], StringComparison.OrdinalIgnoreCase));
+        var created = user is null;
+        if (created)
+        {
+            if (string.IsNullOrEmpty(args[1]))
+                throw new ArgumentException("A password is required for a new user.");
+            user = new FtpUser { Name = args[0] };
+            config.Users.Add(user);
+        }
+
+        var home = Path.GetFullPath(args[2]);
+        System.IO.Directory.CreateDirectory(home);
+        if (!string.IsNullOrEmpty(args[1]))
+            user!.PasswordProtected = protector.Protect(args[1]);
+        user!.HomeDirectory = home;
+        user.Enabled = !args.Contains("--disabled");
+        user.Permissions = new FtpPermissions
+        {
+            Read = args.Contains("--read"),
+            Write = true,
+            Delete = args.Contains("--delete"),
+            CreateDirectory = true,
+            List = true,
+        };
+
+        store.Save(config);
+        Harden(store);
+        Console.WriteLine($"{(created ? "Added" : "Updated")} '{user.Name}' with scan folder {home}. Restart the service to apply it.");
+        return 0;
+    }
+
+    private static int ListUsers(string[] args)
     {
         var config = Store().Load();
+        if (args.Contains("--json"))
+        {
+            Console.WriteLine(JsonSerializer.Serialize(config.Users.Select(user => new
+            {
+                name = user.Name,
+                enabled = user.Enabled,
+                homeDirectory = user.HomeDirectory,
+                read = user.Permissions.Read,
+                write = user.Permissions.Write,
+                delete = user.Permissions.Delete,
+                createDirectory = user.Permissions.CreateDirectory,
+                list = user.Permissions.List,
+            })));
+            return 0;
+        }
         if (config.Users.Count == 0) Console.WriteLine("No FTP users configured.");
         foreach (var user in config.Users)
             Console.WriteLine($"{user.Name}\t{(user.Enabled ? "enabled" : "disabled")}\t{user.HomeDirectory}");
@@ -215,8 +276,9 @@ internal static class Program
 
               basic-ftp-server init
               basic-ftp-server add-user <name> <password> <scan-folder> [--read] [--delete]
+              basic-ftp-server set-user <name> <password-or-empty> <scan-folder> [--read] [--delete] [--disabled]
               basic-ftp-server remove-user <name>
-              basic-ftp-server list-users
+              basic-ftp-server list-users [--json]
               basic-ftp-server status
               basic-ftp-server show-config
               basic-ftp-server run
