@@ -35,6 +35,7 @@ public sealed class ServerSupervisor(ConfigStore store, LogRing log, ILogger<Ser
     private DateTimeOffset _nextAttempt = DateTimeOffset.MinValue;
     private TimeSpan _retryDelay = TimeSpan.FromSeconds(2);
     private (int Available, int Checked) _passiveProbe;
+    private int _disposed;
 
     public bool IsRunning => _host?.IsRunning == true;
 
@@ -261,8 +262,27 @@ public sealed class ServerSupervisor(ConfigStore store, LogRing log, ILogger<Ser
         }
     }
 
+    /// <summary>
+    /// Disposes at most once, however many times it is called.
+    ///
+    /// It is called twice on every shutdown: FtpWorker.StopAsync disposes the supervisor so
+    /// the listener closes before the rest of the host goes, and then the container disposes
+    /// the same singleton again. The second pass used to reach CancelAsync on a disposed
+    /// CancellationTokenSource and throw out of host disposal, which Program.RunService
+    /// caught, logged as "The service terminated unexpectedly", and turned into exit code 1.
+    /// A deliberate stop ending in a non-zero exit is not cosmetic: the service is
+    /// registered with RESTART failure actions, so the SCM can read it as a crash and start
+    /// the service again underneath whoever just stopped it.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
+        // Interlocked rather than a plain bool: the two calls come from different points in
+        // the host's teardown, and nothing guarantees they are on the same thread.
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
+        {
+            return;
+        }
+
         if (_cts is not null)
         {
             await _cts.CancelAsync().ConfigureAwait(false);
