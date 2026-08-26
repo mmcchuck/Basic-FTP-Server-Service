@@ -27,12 +27,18 @@ public sealed class TrayContext : ApplicationContext
     /// </summary>
     private readonly Form _uiThreadMarshaller;
 
+    /// <summary>Runs only until a taskbar exists to hold the icon. Null once it has.</summary>
+    private System.Windows.Forms.Timer? _iconWatchdog;
+
     private SettingsForm? _settings;
     private LogForm? _log;
     private ServerStatusDto? _status;
 
     public TrayContext(bool showSettingsOnStart = false)
     {
+        // Before the NotifyIcon, so no TaskbarCreated broadcast can arrive in the gap.
+        TaskbarIconRecovery.AllowTaskbarCreatedBroadcast();
+
         _statusItem = new ToolStripMenuItem("Checking…") { Enabled = false };
         _addressItem = new ToolStripMenuItem("") { Enabled = false };
         _startStopItem = new ToolStripMenuItem("Stop Server", null, (_, _) => _ = ToggleServerAsync());
@@ -60,6 +66,16 @@ public sealed class TrayContext : ApplicationContext
             ContextMenuStrip = menu,
         };
         _icon.DoubleClick += (_, _) => ShowSettings();
+
+        // The logon task starts this process while the shell is still coming up, so the
+        // add above routinely has no taskbar to add to. AllowTaskbarCreatedBroadcast should
+        // cover that on its own; this is the belt to its braces, because a logon is also
+        // when Shell_NotifyIcon is documented to fail under load, and a missing icon is
+        // invisible to whoever is waiting for it.
+        if (!TaskbarIconRecovery.TaskbarExists())
+        {
+            StartIconWatchdog();
+        }
 
         _poll = new System.Windows.Forms.Timer { Interval = 2000 };
         _poll.Tick += (_, _) => _ = RefreshAsync();
@@ -273,11 +289,51 @@ public sealed class TrayContext : ApplicationContext
     }
 
     /// <summary>
+    /// Re-adds the icon once a taskbar turns up. Gives up after two minutes: a session with
+    /// no shell by then — a kiosk, a stripped-down server — is never going to grow one,
+    /// and a timer ticking for the life of the process would be the worse outcome.
+    /// </summary>
+    private void StartIconWatchdog()
+    {
+        var deadline = DateTime.UtcNow.AddMinutes(2);
+
+        _iconWatchdog = new System.Windows.Forms.Timer { Interval = 2000 };
+        _iconWatchdog.Tick += (_, _) =>
+        {
+            if (!TaskbarIconRecovery.TaskbarExists())
+            {
+                if (DateTime.UtcNow > deadline)
+                {
+                    StopIconWatchdog();
+                }
+
+                return;
+            }
+
+            // Off and on again to force the add. Nothing flickers: the whole reason this
+            // timer is running is that the icon is not on the taskbar.
+            _icon.Visible = false;
+            _icon.Visible = true;
+            StopIconWatchdog();
+        };
+
+        _iconWatchdog.Start();
+    }
+
+    private void StopIconWatchdog()
+    {
+        _iconWatchdog?.Stop();
+        _iconWatchdog?.Dispose();
+        _iconWatchdog = null;
+    }
+
+    /// <summary>
     /// Closes only the UI. The service keeps serving — the whole point of this design is
     /// that scanning does not depend on anyone being logged in.
     /// </summary>
     private void ExitTray()
     {
+        StopIconWatchdog();
         _poll.Stop();
         _icon.Visible = false;
         ExitThread();
@@ -291,6 +347,7 @@ public sealed class TrayContext : ApplicationContext
             _showUiRegistration.Unregister(null);
             _showUiRequested.Dispose();
             _uiThreadMarshaller.Dispose();
+            StopIconWatchdog();
             _poll.Dispose();
             _icon.Dispose();
         }
