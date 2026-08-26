@@ -16,7 +16,7 @@
       IncludeSourceRevisionInInformationalVersion is off because the SDK otherwise appends
       "+<commit hash>" to ProductVersion, which would land in the installer's filename.
     -->
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
