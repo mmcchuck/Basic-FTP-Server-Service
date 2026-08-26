@@ -32,6 +32,12 @@ public static class TrayAutostart
     ///     laptop the tray never starts on battery and is stopped when unplugged.
     ///   * /RU cannot set the account without a password prompt, so the logon trigger ends
     ///     up scoped to "any user" rather than the intended one.
+    ///   * MultipleInstancesPolicy cannot be expressed at all and defaults to IgnoreNew,
+    ///     which breaks the Start Menu shortcut: it runs this task, and the second instance
+    ///     exists only to ask the running tray to show its settings window and exit.
+    ///     IgnoreNew refuses to start that instance (0x800710E0), so the click does nothing.
+    ///     Parallel is safe here — Program.RunTray holds a single-instance mutex, so a
+    ///     second tray icon cannot appear.
     ///
     /// The command-line forms remain as fallbacks so this can never do worse than before.
     /// </summary>
@@ -117,7 +123,7 @@ public static class TrayAutostart
                 </Principal>
               </Principals>
               <Settings>
-                <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+                <MultipleInstancesPolicy>Parallel</MultipleInstancesPolicy>
                 <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
                 <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
                 <AllowHardTerminate>true</AllowHardTerminate>
